@@ -5,6 +5,7 @@ import datetime
 import pathlib
 from pathlib import Path
 import pandas as pd
+import pprint
 
 #Globals Start
 today = date.today()
@@ -19,7 +20,7 @@ month = today.month
 day = today.day
 
 MondayDate = day - weekDay
-#get the file path of the dir the program was exc. out of. 
+#get the file path of the dir the program was exc. out of.
 dirPath = pathlib.Path().cwd()
 
 #create a standard file name. Add correct file type.
@@ -30,50 +31,70 @@ fullFilePath = str(str(dirPath) + "\\" + weeklyFileName)
 
 #assuming you only want appointments between the hours of 1100 and 2000.
 timeSlots = list()
-timeSlots = ['1100','1200','1300','1400','1500','1600','1700','1800','1900','2000']
+timeSlots = ['1300','1400','1500','1600','1700','1800','1900','2000','2100','2200','2300']
 
 #this is here for testing.
 #people = list()
 #people = ['personA','personB','personC','personD','personE','personF','personG','personH','personI','personJ']
 
-#end of Globals 
+#end of Globals
 
 #lets create a class to hold all of our functions related to the scheduler
 class scheduler():
 
-    #creates a Excel file with dates listed on the left and times listed on the top. 
-    def newWeek():
-
-        #check to see if a scheudle already exist
-        scheduler.createSchedule()
-        schedule = dict()
-        thisWeek = list()
-        #get mondays date.
-        tempDay = day - weekDay
-
-        #loop thru the week and add the dates to a dict.
-        for i in range(7):
-
-            tempDate = datetime.date(year,month,tempDay).strftime("%m/%d/%Y")
-            thisWeek.append(tempDate)
-            schedule.update({tempDate : {}})
-            #loop thru the time slots and add an entry to the dict.
-            for j in timeSlots:
-                schedule[tempDate].update({j:{}})
-
-            tempDay = tempDay + 1
-        
-        schedulePd = pd.DataFrame(schedule)
-        #transpose the pandas DataFrame 
-        schedulePd = schedulePd.T
-        schedulePd.to_excel(fullFilePath)
+    #creates a Excel file with dates listed on the left and times listed on the top.
 
     def createSchedule():
 
-        #returnes a T/F if the file exists or not 
+        #returnes a T/F if the file exists or not
         quickCheck = Path(fullFilePath).exists()
 
         if quickCheck == False:
-            Path(fullFilePath).touch()
 
-scheduler.newWeek()
+            Path(fullFilePath).touch()
+            scheduler.createSchedule()
+            schedule = dict()
+            thisWeek = list()
+            # get mondays date.
+            tempDay = day - weekDay
+
+            # loop thru the week and add the dates to a dict.
+
+            for i in range(7):
+
+                tempDate = datetime.date(year, month, tempDay).strftime("%m/%d/%Y")
+                thisWeek.append(tempDate)
+                schedule.update({tempDate: dict()})
+                # loop thru the time slots and add an entry to the dict.
+                for j in timeSlots:
+                    schedule[tempDate].update({j: ''})
+
+                tempDay = tempDay + 1
+
+            schedulePd = pd.DataFrame.from_dict(schedule)
+            schedulePd.to_excel(fullFilePath)
+
+
+    def filterDiscordMessage(message):
+
+        fromDiscordMessage = message
+        fromDiscordMessage = fromDiscordMessage.split(' ')
+        fromDiscodTime = fromDiscordMessage[1]
+        fromDiscordDate = fromDiscordMessage[0]
+        fromDiscordDate = fromDiscordDate.split('/')
+        fromDiscordDateDay = int(fromDiscordDate[1])
+        fromDiscordDateMonth = int(fromDiscordDate[0])
+        fromDiscordDate = datetime.date(year, fromDiscordDateMonth, fromDiscordDateDay).strftime("%m/%d/%Y")
+        fromDiscordDateAndtime = list()
+        fromDiscordDateAndtime = [fromDiscordDate,fromDiscodTime]
+        return fromDiscordDateAndtime
+
+
+    def addApointment(user,date,time):
+
+        time = int(time)
+        schedule = pd.read_excel(fullFilePath, index_col=0)
+        tempDict = dict()
+        tempDict = {date:{time: user}}
+        schedule.update(other= tempDict,overwrite=False)
+        schedule.to_excel(fullFilePath)
