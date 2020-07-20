@@ -5,6 +5,7 @@ import datetime
 import pathlib
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import pprint
 
 #Globals Start
@@ -64,14 +65,16 @@ class scheduler():
 
                 tempDate = datetime.date(year, month, tempDay).strftime("%m/%d/%Y")
                 thisWeek.append(tempDate)
-                schedule.update({tempDate: dict()})
+                schedule.update({tempDate:dict()})
                 # loop thru the time slots and add an entry to the dict.
                 for j in timeSlots:
-                    schedule[tempDate].update({j: ''})
+                    schedule[tempDate].update({str(j): np.NaN})
 
                 tempDay = tempDay + 1
 
+            pprint.pp(schedule)
             schedulePd = pd.DataFrame.from_dict(schedule)
+            pprint.pp(schedulePd)
             schedulePd.to_excel(fullFilePath)
 
 
@@ -90,11 +93,22 @@ class scheduler():
         return fromDiscordDateAndtime
 
 
-    def addApointment(user,date,time):
+    def addAppointment(user,date,time):
 
         time = int(time)
         schedule = pd.read_excel(fullFilePath, index_col=0)
-        tempDict = dict()
-        tempDict = {date:{time: user}}
-        schedule.update(other= tempDict,overwrite=False)
+        schedule.update(other={date:{time: user}},overwrite=False)
         schedule.to_excel(fullFilePath)
+
+    def removeAppointment(date,time):
+
+        time = int(time)
+        schedule = pd.read_excel(fullFilePath, index_col=0)
+        schedule.loc[time,date] = np.NaN
+        schedule.to_excel(fullFilePath)
+
+    def findAppointment(date,time):
+
+        time = int(time)
+        schedule = pd.read_excel(fullFilePath, index_col=0)
+        return schedule.loc[time,date]
