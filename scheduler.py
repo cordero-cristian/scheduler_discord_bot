@@ -79,11 +79,14 @@ class scheduler():
 
 
     def filterDiscordMessage(message):
+        #returns a list that contains the date in the format of 'mm/dd/yyyy' and the time in 24 hour clocks.
 
         fromDiscordMessage = message
+        #speperate the time and state
         fromDiscordMessage = fromDiscordMessage.split(' ')
         fromDiscodTime = fromDiscordMessage[1]
         fromDiscordDate = fromDiscordMessage[0]
+        #get day and Month from 'date'
         fromDiscordDate = fromDiscordDate.split('/')
         fromDiscordDateDay = int(fromDiscordDate[1])
         fromDiscordDateMonth = int(fromDiscordDate[0])
@@ -104,11 +107,12 @@ class scheduler():
 
         time = int(time)
         schedule = pd.read_excel(fullFilePath, index_col=0)
+        #assign a None value.
         schedule.loc[time,date] = np.NaN
         schedule.to_excel(fullFilePath)
 
     def findAppointment(date,time):
-
+        #returns the username
         time = int(time)
         schedule = pd.read_excel(fullFilePath, index_col=0)
         return schedule.loc[time,date]
