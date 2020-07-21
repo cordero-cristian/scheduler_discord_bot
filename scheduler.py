@@ -6,6 +6,7 @@ import pathlib
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import discord
 import pprint
 
 #Globals Start
@@ -32,7 +33,9 @@ fullFilePath = str(str(dirPath) + "\\" + weeklyFileName)
 
 #assuming you only want appointments between the hours of 1100 and 2000.
 timeSlots = list()
-timeSlots = ['1300','1400','1500','1600','1700','1800','1900','2000','2100','2200','2300']
+timeSlots = ['1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM','11PM']
+
+serverAdmins = list()
 
 #this is here for testing.
 #people = list()
@@ -79,7 +82,7 @@ class scheduler():
 
 
     def filterDiscordMessage(message):
-        #returns a list that contains the date in the format of 'mm/dd/yyyy' and the time in 24 hour clocks.
+        #returns a list that contains the date in the format of 'mm/dd/yyyy' and the time
 
         fromDiscordMessage = message
         #speperate the time and state
@@ -98,14 +101,12 @@ class scheduler():
 
     def addAppointment(user,date,time):
 
-        time = int(time)
         schedule = pd.read_excel(fullFilePath, index_col=0)
         schedule.update(other={date:{time: user}},overwrite=False)
         schedule.to_excel(fullFilePath)
 
     def removeAppointment(date,time):
 
-        time = int(time)
         schedule = pd.read_excel(fullFilePath, index_col=0)
         #assign a None value.
         schedule.loc[time,date] = np.NaN
@@ -113,6 +114,117 @@ class scheduler():
 
     def findAppointment(date,time):
         #returns the username
-        time = int(time)
+
         schedule = pd.read_excel(fullFilePath, index_col=0)
         return schedule.loc[time,date]
+
+    def allOpenAppointment():
+        #returns a list of all indexs of Open Sessions
+
+        listOfOpenAppointments = list()
+        schedule = pd.read_excel(fullFilePath, index_col=0)
+        result = schedule.isin([np.NaN])
+        allTrues = result.any()
+        columnNames = list(allTrues[allTrues == True].index)
+        for col in columnNames:
+            rows = list(result[col][result[col] == True].index)
+            for row in rows:
+                listOfOpenAppointments.append((row, col))
+        return listOfOpenAppointments
+
+
+client = discord.Client()
+
+@client.event
+
+async def on_message(message):
+
+    possibleMessageForAdd = tuple()
+    possibleMessageForCancel = tuple()
+    possibleMessageForRemove = tuple()
+    possibleMessageForAll = tuple()
+
+    possibleMessageForAdd = ('!add','!ADD','!Add')
+    possibleMessageForCancel = ('!Cancel','!cancel','!CANCEL')
+    possibleMessageForRemove = ('!Remove','!remove','!REMOVE')
+    possibleMessageForAll =('!All','!ALL','!all')
+
+    if message.author == client.user:
+        return
+
+    if message.content.startswith(possibleMessageForAdd):
+
+        scheduler.createSchedule()
+        user = message.author
+        messageText = message.content[5:]
+        messageText = scheduler.filterDiscordMessage(messageText)
+        dateFromDiscord = messageText[0]
+        timeFromDiscord = messageText[1]
+        scheduler.addAppointment(user,dateFromDiscord,timeFromDiscord)
+
+        await message.channel.send('added ' + str(user) + ' to Schedule\n' + 'Appointment set for:' + dateFromDiscord + ' ' + timeFromDiscord)
+
+    if message.content.startswith(possibleMessageForCancel):
+
+        scheduler.createSchedule()
+        user = message.author
+        user = str(user)
+        messageText = message.content[8:]
+        messageText = scheduler.filterDiscordMessage(messageText)
+        dateFromDiscord = messageText[0]
+        timeFromDiscord = messageText[1]
+
+        quickCheck = scheduler.findAppointment(dateFromDiscord,timeFromDiscord)
+        #check to make sure that the user is the one assigned to that session
+        if quickCheck == user:
+
+            scheduler.removeAppointment(dateFromDiscord,timeFromDiscord)
+
+            await message.channel.send('removed ' + str(user) + ' from Schedule\n' + 'Appointment removed :' + dateFromDiscord + ' ' + timeFromDiscord)
+
+        elif quickCheck != user:
+
+            await message.channel.send('Youre not the User that created the appointment')
+
+    if message.content.startswith(possibleMessageForRemove):
+
+        user = message.author
+        role = user.role
+        permission = role.permissions
+        guild = user.guild
+        messageText = message.content[8:]
+        messageText = scheduler.filterDiscordMessage(messageText)
+        dateFromDiscord = messageText[0]
+        timeFromDiscord = messageText[1]
+        #keep a list of usernames for server admins
+        allUsersInGuild = guild.members
+        
+        for member in allUsersInGuild:
+                role = member.roles
+                permission = role.permissions
+                
+                if permission is True:
+                    serverAdmins.append(member)
+
+        if permission is True:
+            #verify user is an admin
+            value = scheduler.findAppointment(dateFromDiscord,timeFromDiscord)
+            scheduler.removeAppointment(dateFromDiscord,timeFromDiscord)
+
+            await message.channel.send('Removed ' + value )
+
+        else:
+
+            await message.channel.send('Only Admins can use this command')
+
+    if message.content.startswith(possibleMessageForAll):
+
+        allAppointments = scheduler.allOpenAppointment()
+        await message.channel.send('Please Stand by while I gather a list of open Sessions, I can only send a max of 5 Messages a Second.')
+
+        for appointment in allAppointments:
+
+            await message.channel.send(appointment)
+
+token = input("Enter Bots Token Creds\n")
+client.run(token)
